@@ -1,110 +1,81 @@
-import requests
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import rcParams
-from matplotlib.font_manager import FontProperties
+import requests  # HTTP 요청을 보내기 위한 라이브러리 (TMDB API 호출에 사용)
+import pandas as pd  # 데이터 처리 및 분석을 위한 라이브러리
+import matplotlib.pyplot as plt  # 데이터 시각화를 위한 라이브러리
+from matplotlib import rcParams  # Matplotlib의 런타임 설정을 위한 모듈 (폰트 설정 등)
+from matplotlib.font_manager import FontProperties  # 폰트 설정을 위한 모듈 (한글 폰트 적용 시 사용)
 
-API_KEY = ''  # TMDB API 키
+API_KEY = ' '  # TMDB API 키 (영화 데이터 요청 시 사용)
 
-# 한글 폰트 설정 (Windows의 경우)
-font_path = "C:/Windows/Fonts/malgun.ttf"  # 맑은 고딕 폰트 경로
-font_prop = FontProperties(fname=font_path)
-rcParams['font.family'] = font_prop.get_name()
+# 한글 폰트 설정 (Windows 환경 기준)
+font_path = "C:/Windows/Fonts/malgun.ttf"  # 맑은 고딕 폰트 경로 설정
+font_prop = FontProperties(fname=font_path)  # 지정된 폰트를 로드하여 FontProperties 객체 생성
+rcParams['font.family'] = font_prop.get_name()  # Matplotlib에서 한글 폰트 사용 설정
 
-# 2. TMDB에서 현재 상영중인 영화 목록 불러오기
+# 2. TMDB에서 현재 상영중인 영화 목록 불러오기 (페이지별 요청 가능)
 def fetch_movies_from_tmdb(page=1):
-    url = f'https://api.themoviedb.org/3/movie/now_playing?api_key={API_KEY}&language=ko-KR&page={page}'
-    response = requests.get(url)
+    url = f'https://api.themoviedb.org/3/movie/now_playing?api_key={API_KEY}&language=ko-KR&page={page}'  # TMDB API URL 설정
+    response = requests.get(url)  # API 요청 실행
     
-    if response.status_code == 200:
-        data = response.json()
+    if response.status_code == 200:  # 요청 성공 시
+        data = response.json()  # JSON 데이터로 변환
         return data['results']  # 영화 데이터 리스트 반환
     else:
-        print("API 요청 실패:", response.status_code)
+        print("API 요청 실패:", response.status_code)  # 요청 실패 시 오류 코드 출력
         return []
 
-# 3. 여러 페이지에서 영화 데이터 수집 (현재 상영중인 영화만)
-all_movies = []
-for page in range(1, 6):  # 5페이지(100개) 데이터 수집
-    movies = fetch_movies_from_tmdb(page)
-    all_movies.extend(movies)
+# 3. 여러 페이지에서 영화 데이터 수집 (현재 상영중인 영화 기준, 5페이지)
+all_movies = []  # 영화 데이터를 저장할 리스트 초기화
+for page in range(1, 6):  # 1~5페이지까지 반복하여 데이터 수집
+    movies = fetch_movies_from_tmdb(page)  # 각 페이지에서 영화 데이터 불러오기
+    all_movies.extend(movies)  # 전체 영화 데이터 리스트에 추가
 
-# 4. 데이터프레임으로 변환
-df = pd.DataFrame(all_movies)
+# 4. 데이터프레임으로 변환 (pandas 사용)
+df = pd.DataFrame(all_movies)  # 수집한 데이터를 데이터프레임으로 변환
 
 # 5. 2024년 12월에 개봉한 영화만 필터링
-df['release_date'] = pd.to_datetime(df['release_date'])  # release_date를 날짜 형식으로 변환
-df_december = df[df['release_date'].dt.year == 2024]
-df_december = df_december[df_december['release_date'].dt.month == 12]  # 12월에 개봉한 영화만 필터링
+df['release_date'] = pd.to_datetime(df['release_date'])  # release_date 컬럼을 날짜 형식으로 변환
+df_december = df[df['release_date'].dt.year == 2024]  # 2024년 개봉 영화 필터링
+df_december = df_december[df_december['release_date'].dt.month == 12]  # 12월 개봉 영화만 필터링
 
-# 6. 데이터 확인
-print(df_december.head())  # 데이터 미리보기
+# 6. 데이터 확인 (필터링된 데이터 미리보기)
+print(df_december.head())  # 상위 5개 행 출력
 
-# 7. 예시 분석
-
-# 영화의 평균 평점 구하기
-average_rating = df_december['vote_average'].mean()
-print(f"2024년 12월 개봉 영화의 평균 평점: {average_rating}")
-
-# 장르별로 영화 그룹화 (장르 ID 기준)
-# 'genre_ids' 컬럼은 영화의 장르 ID 리스트로 되어 있기 때문에 이를 분해하여 각 장르에 대해 카운트를 셈
-genres = pd.DataFrame(df_december['genre_ids'].explode().value_counts())
-print("2024년 12월 개봉 영화의 장르별 영화 수:")
-print(genres)
-
-# 8. 평점 분포 시각화
-plt.figure(figsize=(10, 6))
-plt.hist(df_december['vote_average'], bins=20, edgecolor='black', color='skyblue')
-plt.title('2024년 12월 개봉 영화 평점 분포')
-plt.xlabel('평점')
-plt.ylabel('영화 수')
-plt.grid(True)
-plt.show()
-
-# 9. 장르별 평균 평점 계산
-df_december['genre_ids'] = df_december['genre_ids'].apply(lambda x: ', '.join(map(str, x)))  # 장르 ID를 문자열로 변환
-genre_avg_rating = df_december.groupby('genre_ids')['vote_average'].mean().reset_index()
-
-# 장르별 평균 평점 출력
-print("2024년 12월 개봉 영화의 장르별 평균 평점:")
-print(genre_avg_rating.sort_values(by='vote_average', ascending=False))
-
-# 10. 장르별 영화 수 시각화
-genre_counts = df_december['genre_ids'].value_counts()
-
-# 장르별 영화 수 시각화
-plt.figure(figsize=(10, 6))
-genre_counts.plot(kind='bar', color='lightcoral')
-plt.title('2024년 12월 개봉 영화의 장르별 영화 수')
-plt.xlabel('장르')
-plt.ylabel('영화 수')
-plt.xticks(rotation=90)
-plt.grid(True)
-plt.show()
-
-# 11. 평점이 높은 상위 10개 영화
-top_rated_movies = df_december.sort_values(by='vote_average', ascending=False).head(10)
-print("2024년 12월 개봉 영화의 평점이 높은 상위 10개 영화:")
-print(top_rated_movies[['title', 'vote_average']])
-
-# 12. 영화 제목과 평점 시각화
-top_movies = df_december[['title', 'vote_average']].head(10)
-plt.figure(figsize=(10, 6))
-plt.barh(top_movies['title'], top_movies['vote_average'], color='seagreen')
-plt.title('2024년 12월 개봉 영화의 평점이 높은 상위 10개 영화')
-plt.xlabel('평점')
-plt.ylabel('영화 제목')
-plt.grid(True)
-plt.show()
-
-# 13. 수익과 평점 간의 관계 분석 (2024년 12월 개봉 영화에서만 확인)
-if 'revenue' in df_december.columns:
-    plt.figure(figsize=(10, 6))
-    plt.scatter(df_december['revenue'], df_december['vote_average'], alpha=0.5, color='orange')
-    plt.title('수익과 평점 간의 관계 (2024년 12월 개봉 영화)')
-    plt.xlabel('수익')
-    plt.ylabel('평점')
-    plt.grid(True)
-    plt.show()
+# 1. 상영관 수 분석 (상영관 수가 포함된 경우 vote_count 기준 분석)
+if 'vote_count' in df_december.columns:
+    plt.figure(figsize=(10, 6))  # 그래프 크기 설정
+    plt.hist(df_december['vote_count'], bins=20, edgecolor='black', color='steelblue')  # 히스토그램으로 상영관 수 분포 시각화
+    plt.title('2024년 12월 개봉 영화 상영관 수 분포')  # 그래프 제목 설정
+    plt.xlabel('상영관 수 (투표 수 기준)')  # x축 라벨 설정
+    plt.ylabel('영화 수')  # y축 라벨 설정
+    plt.grid(True)  # 격자 보이기
+    plt.show()  # 그래프 출력
 else:
-    print("'revenue' 컬럼이 없습니다. 2024년 12월 개봉 영화에는 수익 데이터가 포함되지 않을 수 있습니다.")
+    print("'vote_count' 컬럼이 없습니다. 상영관 데이터가 포함되지 않았습니다.")  # 데이터에 vote_count가 없을 경우 안내
+
+# 2. 가장 인기 있는 영화 (인기도 기준 상위 10개 영화 출력)
+top_popular_movies = df_december.sort_values(by='popularity', ascending=False).head(10)  # popularity 기준 정렬 후 상위 10개 선택
+print("2024년 12월 개봉 영화 중 가장 인기 있는 상위 10개 영화:")
+print(top_popular_movies[['title', 'popularity']])  # 인기 영화 제목과 인기도 출력
+
+# 4. 월별 평균 평점 변화 추이 (전체 데이터 기준 분석)
+df['release_month'] = df['release_date'].dt.to_period('M')  # 개봉 날짜를 월 단위로 변환 (2024-12 등으로 표기)
+monthly_avg_rating = df.groupby('release_month')['vote_average'].mean().reset_index()  # 월별 평균 평점 계산
+
+plt.figure(figsize=(12, 6))  # 그래프 크기 설정
+plt.plot(monthly_avg_rating['release_month'].astype(str), monthly_avg_rating['vote_average'], marker='o', color='purple')  # 월별 평점 그래프 생성
+plt.title('월별 평균 평점 변화 추이')  # 그래프 제목 설정
+plt.xlabel('개봉 월')  # x축 라벨 설정
+plt.ylabel('평균 평점')  # y축 라벨 설정
+plt.xticks(rotation=45)  # x축 라벨 회전
+plt.grid(True)  # 격자 보이기
+plt.show()  # 그래프 출력
+
+# 7. 상위 10개 인기 영화 시각화 (시각적 표현을 위한 바 그래프)
+plt.figure(figsize=(10, 6))  # 그래프 크기 설정
+plt.barh(top_popular_movies['title'], top_popular_movies['popularity'], color='orange')  # 바 그래프로 인기 영화 시각화
+plt.title('2024년 12월 개봉 영화 중 상위 10개 인기 영화')  # 그래프 제목 설정
+plt.xlabel('인기도')  # x축 라벨 설정
+plt.ylabel('영화 제목')  # y축 라벨 설정
+plt.gca().invert_yaxis()  # y축 반전 (인기 영화가 위에서 아래로 정렬)
+plt.grid(True)  # 격자 보이기
+plt.show()  # 그래프 출력
