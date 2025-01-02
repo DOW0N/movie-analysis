@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from matplotlib.font_manager import FontProperties
 
-API_KEY = 'e2d9b6543b94a42e287475b9932ad898'  # TMDB API 키
+API_KEY = ''  # TMDB API 키
 
 # 한글 폰트 설정 (Windows의 경우)
 font_path = "C:/Windows/Fonts/malgun.ttf"  # 맑은 고딕 폰트 경로
